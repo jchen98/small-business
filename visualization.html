@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-  <title>Query features from a FeatureLayerView - 4.1</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <title>Query features from a FeatureLayerView - 4.1</title>
 
-  <link rel="stylesheet" href="https://js.arcgis.com/4.1/esri/css/main.css">
-  <script src="https://js.arcgis.com/4.1/"></script>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.1/esri/css/main.css">
+    <script src="https://js.arcgis.com/4.1/"></script>
 
-  <script>
+    <script>
     require([
         "esri/Map",
         "esri/views/MapView",
@@ -21,178 +21,216 @@
         "dojo/dom-attr",
         "dojo/dom-construct",
         "dojo/domReady!"
-      ],
-      function(
+    ],
+    function(
         Map, MapView,
         FeatureLayer,
         a11yclick,
         on,
         dom, domAttr, domConstruct
-      ) {
+    ) {
 
         var map = new Map({
-          basemap: "dark-gray"
+            basemap: "dark-gray"
         });
 
         var view = new MapView({
-          container: "sceneDiv",
-          map: map,
-          center: [-73.950, 40.702],
-          zoom: 11,
-          padding: {
-            right: 300
-          }
+            container: "sceneDiv",
+            map: map,
+            center: [-73.950, 40.702],
+            zoom: 11,
+            padding: {
+                right: 300
+            }
         });
 
         var listNode = dom.byId("nyc_graphics");
 
         /********************
-         * Add feature layer
-         ********************/
+        * Add feature layer
+        ********************/
 
         // Create the PopupTemplate
-        var popupTemplate = {
-          title: "Zipcode: {ZIP}",
-          content: "<p><b> Sales: {MARRIEDRATE}% </b></p>" +
-            "<p> Population: {POP2012}</p>" +
-            "<p> Median Income: {NEVMARR_CY}</p>" +
-            "<p> Number of Stores: {DIVORCD_CY}</p>"
+        var demographicsTemplate = {
+            title: "Zipcode: {ZIP}",
+            content: "<p> Population: {POP2012} </b></p>" +
+            "<p> Marriage Rate: {MARRIEDRATE}%</p>"
+        };
+        var educationTemplate = {
+            title: "",
+            content: "<p> < 9th Grade: {NOHS_CY}</p>" +
+            "<p> Some HS: {SOMEHS_CY}</p>" +
+            "<p> High School Grads: {HSGRAD_CY}</p>" +
+            "<p> Associates Degree Grads: {ASSCDEG_CY}</p>" +
+            "<p> Bachelors Degree Grads: {BACHDEG_CY}</p>" +
+            "<p> Graduate Degree Grads: {GRADDEG_CY}</p>"
         };
 
         // Create the FeatureLayer using the popupTemplate
         var featureLayer = new FeatureLayer({
-          url: "https://services.arcgis.com/V6ZHFr6zdgNZuVG0/ArcGIS/rest/services/NYCDemographics/FeatureServer",
-          outFields: ["*"],
-          popupTemplate: popupTemplate
+            url: "https://services.arcgis.com/V6ZHFr6zdgNZuVG0/ArcGIS/rest/services/NYCDemographics/FeatureServer",
+            outFields: ["*"],
+            popupTemplate: demographicsTemplate
         });
         map.add(featureLayer);
+        var educationLayer = new FeatureLayer({
+            url: "https://services.arcgis.com/V6ZHFr6zdgNZuVG0/ArcGIS/rest/services/NY%20Educational%20Attainment/FeatureServer",
+            outFields: ["*"],
+            popupTemplate: educationTemplate
+        });
+        map.add(educationLayer);
+        educationLayer.visible = true;
+
+        // Create a variable referencing the checkbox node
+        var educationLayerToggle = document.getElementById("education");
+        var sidepanel = document.getElementById("panel-side");
+
+        sidepanel.style.visibility = "hidden"
+
+        // Listen to the onchange event for the checkbox
+        on(educationLayerToggle, "change", function(){
+            // When the checkbox is checked (true), set the layer's visibility to true
+            educationLayer.visible = educationLayerToggle.checked;
+            if(educationLayerToggle.checked){
+                sidepanel.style.visibility = "hidden"
+            }
+            else{
+                sidepanel.style.visibility = "visible"
+            }
+
+        });
 
         var graphics;
 
         view.whenLayerView(featureLayer).then(function(lyrView) {
-          lyrView.watch("updating", function(val) {
-            if (!val) { // wait for the layer view to finish updating
+            lyrView.watch("updating", function(val) {
+                if (!val) { // wait for the layer view to finish updating
 
-              // query all the features available for drawing.
-              lyrView.queryFeatures().then(function(results) {
+                    // query all the features available for drawing.
+                    lyrView.queryFeatures().then(function(results) {
 
-                graphics = results;
+                        graphics = results;
 
-                var fragment = document.createDocumentFragment();
+                        var fragment = document.createDocumentFragment();
 
-                results.forEach(function(result, index) {
-                  var attributes = result.attributes;
-                  var name = attributes.ZIP + " (" +
-                    attributes.PO_NAME + ")"
+                        results.forEach(function(result, index) {
+                            var attributes = result.attributes;
+                            var name = attributes.ZIP + " (" +
+                            attributes.PO_NAME + ")"
 
-                  // Create a list zip codes in NY
-                  domConstruct.create("li", {
-                    className: "panel-result",
-                    tabIndex: 0,
-                    "data-result-id": index,
-                    textContent: name
-                  }, fragment);
-                });
-                domConstruct.place(fragment, listNode, "only");
-              });
-            }
-          });
+                            // Create a list zip codes in NY
+                            domConstruct.create("li", {
+                                className: "panel-result",
+                                tabIndex: 0,
+                                "data-result-id": index,
+                                textContent: name
+                            }, fragment);
+                        });
+                        domConstruct.place(fragment, listNode, "only");
+                    });
+                }
+            });
         });
 
         // listen to click event on the zip code list
         on(listNode, on.selector("li", a11yclick), function(event) {
-          var target = event.target;
-          var resultId = domAttr.get(target, "data-result-id");
+            var target = event.target;
+            var resultId = domAttr.get(target, "data-result-id");
 
-          // get the graphic corresponding to the clicked zip code
-          var result = resultId && graphics && graphics[parseInt(resultId,
-            10)];
+            // get the graphic corresponding to the clicked zip code
+            var result = resultId && graphics && graphics[parseInt(resultId,
+                10)];
 
-          if (result) {
-            // open the popup at the centroid of zip code polygon
-            // and set the popup's features which will populate popup content and title.
-            view.popup.open({
-              features: [result],
-              location: result.geometry.centroid
+                if (result) {
+                    // open the popup at the centroid of zip code polygon
+                    // and set the popup's features which will populate popup content and title.
+                    view.popup.open({
+                        features: [result],
+                        location: result.geometry.centroid
+                    });
+                }
             });
-          }
+
         });
+        </script>
 
-      });
-  </script>
+        <style>
+        html,
+        body,
+        #sceneDiv {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+        }
 
-  <style>
-    html,
-    body,
-    #sceneDiv {
-      height: 100%;
-      width: 100%;
-      margin: 0;
-      padding: 0;
-      font-family: sans-serif;
-    }
+        .panel-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
 
-    .panel-container {
-      position: relative;
-      width: 100%;
-      height: 100%;
-    }
+        #panel-side {
+            padding: 2px;
+            box-sizing: border-box;
+            width: 300px;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            right: 0;
+            color: #fff;
+            background-color: rgba(0, 0, 0, 0.6);
+            overflow: auto;
+            z-index: 60;
+        }
 
-    .panel-side {
-      padding: 2px;
-      box-sizing: border-box;
-      width: 300px;
-      height: 100%;
-      position: absolute;
-      top: 0;
-      right: 0;
-      color: #fff;
-      background-color: rgba(0, 0, 0, 0.6);
-      overflow: auto;
-      z-index: 60;
-    }
+        #panel-side h2 {
+            padding: 0 20px;
+            margin: 20px 0;
+        }
 
-    .panel-side h2 {
-      padding: 0 20px;
-      margin: 20px 0;
-    }
+        #panel-side ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
 
-    .panel-side ul {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-    }
+        #panel-side li {
+            list-style: none;
+            padding: 10px 20px;
+        }
 
-    .panel-side li {
-      list-style: none;
-      padding: 10px 20px;
-    }
+        .panel-result {
+            cursor: pointer;
+            margin: 2px 0;
+            background-color: rgba(0, 0, 0, 0.3);
+        }
 
-    .panel-result {
-      cursor: pointer;
-      margin: 2px 0;
-      background-color: rgba(0, 0, 0, 0.3);
-    }
+        .panel-result:hover,
+        .panel-result:focus {
+            color: orange;
+            background-color: rgba(0, 0, 0, 0.75);
+        }
+        </style>
 
-    .panel-result:hover,
-    .panel-result:focus {
-      color: orange;
-      background-color: rgba(0, 0, 0, 0.75);
-    }
-  </style>
+    </head>
 
-</head>
+    <body>
+        <div class="panel-container">
 
-<body>
-  <div class="panel-container">
-    <div class="panel-side">
-      <h2>Marriage in NY by Zip</h2>
-      <ul id="nyc_graphics">
-        <li>Loading&hellip;</li>
-      </ul>
-    </div>
-    <div id="sceneDiv"></div>
-  </div>
-</body>
+            <span id="layerToggle">
+                <input type="checkbox" id="education" checked> Education
+            </span>
+            <div id="panel-side">
 
-</html>
+                <h2>Marriage in NY by Zip</h2>
+                <ul id="nyc_graphics">
+                    <li>Loading&hellip;</li>
+                </ul>
+            </div>
+            <div id="sceneDiv"></div>
+        </div>
+    </body>
+
+    </html>
